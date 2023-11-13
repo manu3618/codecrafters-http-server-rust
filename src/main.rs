@@ -8,25 +8,28 @@ use std::net::TcpStream;
 use std::thread;
 
 fn handle_stream(mut stream: TcpStream) -> Result<()> {
-    let mut buff = String::new();
-    dbg!(&stream);
+    let mut buff = String::with_capacity(256);
+    // dbg!(&stream);
     let mut reader = BufReader::new(stream.try_clone()?);
     reader.read_line(&mut buff)?;
     let b = buff.clone();
-    buff.clear();
+    dbg!(&b);
+    if b.len() == 0 {
+        return Err(anyhow!("empy path"))
+    }
     let path = b.split(' ').collect::<Vec<_>>()[1];
     dbg!(&path);
 
     // empy line
-    reader.read_line(&mut buff)?;
     buff.clear();
+    reader.read_line(&mut buff)?;
 
     let mut host = String::new();
     let mut user_agent = String::new();
     for _ in 0..2 {
+        buff.clear();
         reader.read_line(&mut buff)?;
         let b = buff.clone();
-        buff.clear();
         let parts = b.split(' ').collect::<Vec<_>>();
         match parts[0] {
             "Host:" => host = parts[1].into(),
@@ -38,7 +41,6 @@ fn handle_stream(mut stream: TcpStream) -> Result<()> {
         }
     }
     dbg!(&host);
-    dbg!(&user_agent);
 
     match handle_path(path, &user_agent) {
         Ok(None) => {
@@ -57,7 +59,7 @@ fn handle_stream(mut stream: TcpStream) -> Result<()> {
 
 fn handle_path(path: &str, user_agent: &str) -> Result<Option<String>> {
     let parts: Vec<_> = path.split('/').collect();
-    dbg!(&parts);
+    // dbg!(&parts);
     match parts.get(1) {
         Some(&"") => Ok(None),
         Some(&"echo") => {
@@ -92,7 +94,6 @@ fn main() {
         match stream {
             Ok(stream) => {
                 handlers.push(thread::spawn(|| handle_stream(stream)));
-                println!("thread spawned");
             }
             Err(e) => {
                 println!("error: {}", e);
