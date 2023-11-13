@@ -1,19 +1,20 @@
-use std::io::Read;
+use anyhow::Result;
+use std::io::BufRead;
+use std::io::BufReader;
 use std::io::Write;
 use std::net::TcpListener;
 use std::net::TcpStream;
-use anyhow::Result;
 
 fn handle_stream(stream: &mut TcpStream) -> Result<()> {
-    let mut buff = [0;20];
+    let mut buff = String::new();
     dbg!(&stream);
-    stream.read_exact(&mut buff)?;
-    let buff = String::from_utf8(buff.to_vec())?;
-    if buff.starts_with("GET / HTTP") {
-        dbg!("/");
+    let mut reader = BufReader::new(stream.try_clone()?);
+    reader.read_line(&mut buff)?;
+    dbg!(&buff);
+    let parts: Vec<_> = buff.split(' ').collect();
+    if parts.get(1) == Some(&"/") {
         let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
     } else {
-        dbg!("pas /");
         let _ = stream.write(b"HTTP/1.1 404 Not Found\r\n\r\n")?;
     }
     Ok(())
