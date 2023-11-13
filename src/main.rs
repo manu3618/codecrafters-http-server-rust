@@ -29,7 +29,7 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
         let parts = b.split(' ').collect::<Vec<_>>();
         match parts[0] {
             "Host:" => host = parts[1].into(),
-            "User-Agent:" => user_agent = parts[1].into(),
+            "User-Agent:" => user_agent = parts[1][..parts[1].len() - 2].into(),
             "Accept:" => (),
             _ => {
                 dbg!(&parts); ()
