@@ -18,7 +18,7 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
         let echo = build_content(&response);
         let _ = stream.write(&echo.into_bytes());
     } else {
-        let _ = stream.write(b"HTTP/1.1 404 Not Found\r\n\r\n")?;
+        let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
     }
     // let parts: Vec<_> = buff.split(' ').collect();
     // if parts.get(1) == Some(&"/") {
