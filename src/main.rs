@@ -9,22 +9,19 @@ use std::thread;
 
 fn handle_stream(mut stream: TcpStream) -> Result<()> {
     let mut buff = String::with_capacity(256);
-    // dbg!(&stream);
     let mut reader = BufReader::new(stream.try_clone()?);
     reader.read_line(&mut buff)?;
     let b = buff.clone();
-    dbg!(&b);
     if b.len() == 0 {
         return Err(anyhow!("empy path"))
     }
     let path = b.split(' ').collect::<Vec<_>>()[1];
-    dbg!(&path);
 
     // empy line
     buff.clear();
     reader.read_line(&mut buff)?;
 
-    let mut host = String::new();
+    let mut _host = String::new();
     let mut user_agent = String::new();
     for _ in 0..2 {
         buff.clear();
@@ -32,15 +29,16 @@ fn handle_stream(mut stream: TcpStream) -> Result<()> {
         let b = buff.clone();
         let parts = b.split(' ').collect::<Vec<_>>();
         match parts[0] {
-            "Host:" => host = parts[1].into(),
+            "Host:" => _host = parts[1].into(),
             "User-Agent:" => user_agent = parts[1][..parts[1].len() - 2].into(),
             "Accept:" => (),
+            "Accept-Encoding:" => (),
+            "\r\n" => (),
             _ => {
                 dbg!(&parts);
             }
         }
     }
-    dbg!(&host);
 
     match handle_path(path, &user_agent) {
         Ok(None) => {
