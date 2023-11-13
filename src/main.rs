@@ -87,18 +87,19 @@ fn main() {
 
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
 
+    let mut handlers = Vec::new();
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                thread::spawn(move || {
-                    let _ = handle_stream(&mut stream);
-                    println!("end of stream handling");
-                });
+                handlers.push(thread::spawn(move || handle_stream(&mut stream)));
                 println!("thread spawned");
             }
             Err(e) => {
                 println!("error: {}", e);
             }
         }
+    }
+    for handle in handlers {
+        let _ = handle.join();
     }
 }
