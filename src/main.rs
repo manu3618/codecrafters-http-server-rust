@@ -7,7 +7,7 @@ use std::net::TcpListener;
 use std::net::TcpStream;
 use std::thread;
 
-fn handle_stream(stream: &mut TcpStream) -> Result<()> {
+fn handle_stream(mut stream: TcpStream) -> Result<()> {
     let mut buff = String::new();
     dbg!(&stream);
     let mut reader = BufReader::new(stream.try_clone()?);
@@ -90,8 +90,8 @@ fn main() {
     let mut handlers = Vec::new();
     for stream in listener.incoming() {
         match stream {
-            Ok(mut stream) => {
-                handlers.push(thread::spawn(move || handle_stream(&mut stream)));
+            Ok(stream) => {
+                handlers.push(thread::spawn(|| handle_stream(stream)));
                 println!("thread spawned");
             }
             Err(e) => {
