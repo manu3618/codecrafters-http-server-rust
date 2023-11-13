@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use anyhow::Result;
 use std::io::BufRead;
 use std::io::BufReader;
@@ -11,9 +12,14 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
     let mut reader = BufReader::new(stream.try_clone()?);
     reader.read_line(&mut buff)?;
     dbg!(&buff);
-    let response = handle_path(&buff)?;
-    let echo = build_content(&response);
-    let _ = stream.write(&echo.into_bytes());
+    let path = buff.split(' ').collect::<Vec<_>>()[1];
+    dbg!(&path);
+    if let Ok(response) =  handle_path(&path) {
+        let echo = build_content(&response);
+        let _ = stream.write(&echo.into_bytes());
+    } else {
+        let _ = stream.write(b"HTTP/1.1 404 Not Found\r\n\r\n")?;
+    }
     // let parts: Vec<_> = buff.split(' ').collect();
     // if parts.get(1) == Some(&"/") {
     //     let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
@@ -25,9 +31,10 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
 
 fn handle_path(path: &str) -> Result<String> {
     let parts: Vec<_> = path.split('/').collect();
-    match parts.first() {
+    dbg!(&parts);
+    match parts.get(1) {
         Some(&"echo") => Ok(parts.get(1).expect("nothing to echo").to_string()),
-        _ => unreachable!(),
+        _ => Err(anyhow!("invalid path")),
     }
 }
 
