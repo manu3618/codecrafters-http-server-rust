@@ -11,10 +11,35 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
     dbg!(&stream);
     let mut reader = BufReader::new(stream.try_clone()?);
     reader.read_line(&mut buff)?;
-    dbg!(&buff);
-    let path = buff.split(' ').collect::<Vec<_>>()[1];
+    let b = buff.clone();
+    buff.clear();
+    let path = b.split(' ').collect::<Vec<_>>()[1];
     dbg!(&path);
-    match handle_path(path) {
+
+    // empy line
+    reader.read_line(&mut buff)?;
+    buff.clear();
+
+    let mut host = String::new();
+    let mut user_agent = String::new();
+    for _ in 0..2 {
+        reader.read_line(&mut buff)?;
+        let b = buff.clone();
+        buff.clear();
+        let parts = b.split(' ').collect::<Vec<_>>();
+        match parts[0] {
+            "Host:" => host = parts[1].into(),
+            "User-Agent:" => user_agent = parts[1].into(),
+            "Accept:" => (),
+            _ => {
+                dbg!(&parts); ()
+            }
+        }
+    }
+    dbg!(&host);
+    dbg!(&user_agent);
+
+    match handle_path(path, &user_agent) {
         Ok(None) => {
             let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
         }
@@ -29,7 +54,7 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
     Ok(())
 }
 
-fn handle_path(path: &str) -> Result<Option<String>> {
+fn handle_path(path: &str, user_agent: &str) -> Result<Option<String>> {
     let parts: Vec<_> = path.split('/').collect();
     dbg!(&parts);
     match parts.get(1) {
@@ -42,6 +67,7 @@ fn handle_path(path: &str) -> Result<Option<String>> {
                 Ok(Some(r.clone()))
             }
         }
+        Some(&"user-agent") => Ok(Some(String::from(user_agent))),
         _ => Err(anyhow!("invalid path")),
     }
 }
