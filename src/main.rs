@@ -5,6 +5,7 @@ use std::io::BufReader;
 use std::io::Write;
 use std::net::TcpListener;
 use std::net::TcpStream;
+use std::thread;
 
 fn handle_stream(stream: &mut TcpStream) -> Result<()> {
     let mut buff = String::new();
@@ -32,7 +33,7 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
             "User-Agent:" => user_agent = parts[1][..parts[1].len() - 2].into(),
             "Accept:" => (),
             _ => {
-                dbg!(&parts); ()
+                dbg!(&parts);
             }
         }
     }
@@ -89,8 +90,11 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                println!("accepted new connection");
-                let _ = handle_stream(&mut stream);
+                thread::spawn(move || {
+                    let _ = handle_stream(&mut stream);
+                    println!("end of stream handling");
+                });
+                println!("thread spawned");
             }
             Err(e) => {
                 println!("error: {}", e);
