@@ -1,9 +1,21 @@
+use std::io::Read;
 use std::io::Write;
 use std::net::TcpListener;
 use std::net::TcpStream;
+use anyhow::Result;
 
-fn handle_stream(stream: &mut TcpStream) -> std::io::Result<()> {
-    let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
+fn handle_stream(stream: &mut TcpStream) -> Result<()> {
+    let mut buff = [0;20];
+    dbg!(&stream);
+    stream.read_exact(&mut buff)?;
+    let buff = String::from_utf8(buff.to_vec())?;
+    if buff.starts_with("GET / HTTP") {
+        dbg!("/");
+        let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
+    } else {
+        dbg!("pas /");
+        let _ = stream.write(b"HTTP/1.1 404 Not Found\r\n\r\n")?;
+    }
     Ok(())
 }
 
