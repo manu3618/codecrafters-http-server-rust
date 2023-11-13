@@ -14,26 +14,27 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
     dbg!(&buff);
     let path = buff.split(' ').collect::<Vec<_>>()[1];
     dbg!(&path);
-    if let Ok(response) =  handle_path(&path) {
-        let echo = build_content(&response);
-        let _ = stream.write(&echo.into_bytes());
-    } else {
-        let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
+    match handle_path(path) {
+        Ok(None) => {
+            let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
+        }
+        Ok(Some(response)) => {
+            let echo = build_content(response);
+            let _ = stream.write(&echo.into_bytes());
+        }
+        _ => {
+            let _ = stream.write(b"HTTP/1.1 404 Not Found\r\n\r\n")?;
+        }
     }
-    // let parts: Vec<_> = buff.split(' ').collect();
-    // if parts.get(1) == Some(&"/") {
-    //     let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
-    // } else {
-    //     let _ = stream.write(b"HTTP/1.1 404 Not Found\r\n\r\n")?;
-    // }
     Ok(())
 }
 
-fn handle_path(path: &str) -> Result<String> {
+fn handle_path(path: &str) -> Result<Option<&str>> {
     let parts: Vec<_> = path.split('/').collect();
     dbg!(&parts);
     match parts.get(1) {
-        Some(&"echo") => Ok(parts.get(1).expect("nothing to echo").to_string()),
+        Some(&"") => Ok(None),
+        Some(&"echo") => Ok(parts.get(2).copied()),
         _ => Err(anyhow!("invalid path")),
     }
 }
