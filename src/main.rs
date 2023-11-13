@@ -19,7 +19,7 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
             let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
         }
         Ok(Some(response)) => {
-            let echo = build_content(response);
+            let echo = build_content(&response);
             let _ = stream.write(&echo.into_bytes());
         }
         _ => {
@@ -29,12 +29,19 @@ fn handle_stream(stream: &mut TcpStream) -> Result<()> {
     Ok(())
 }
 
-fn handle_path(path: &str) -> Result<Option<&str>> {
+fn handle_path(path: &str) -> Result<Option<String>> {
     let parts: Vec<_> = path.split('/').collect();
     dbg!(&parts);
     match parts.get(1) {
         Some(&"") => Ok(None),
-        Some(&"echo") => Ok(parts.get(2).copied()),
+        Some(&"echo") => {
+            if parts.len() < 2 {
+                Ok(None)
+            } else {
+                let r = parts[2..parts.len()].join("/");
+                Ok(Some(r.clone()))
+            }
+        }
         _ => Err(anyhow!("invalid path")),
     }
 }
