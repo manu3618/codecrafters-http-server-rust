@@ -1,38 +1,29 @@
 use anyhow::anyhow;
 use anyhow::Result;
-use std::io::BufRead;
-use std::io::BufReader;
+use std::io::Read;
 use std::io::Write;
 use std::net::TcpListener;
 use std::net::TcpStream;
 use std::{thread, time};
 
 fn handle_stream(mut stream: TcpStream) -> Result<()> {
-    stream.set_read_timeout(Some(time::Duration::new(1, 0)))?;
-    dbg!(&stream);
-    let mut buff = String::with_capacity(256);
-    eprintln!("creating reader ({:?})", &stream);
-    let mut reader = BufReader::new(stream.try_clone()?);
-    eprintln!("reading 1st line ({:?})", &stream);
-    reader.read_line(&mut buff)?;
-    eprintln!("1st line read ({:?})", &stream);
-    let b = buff.clone();
-    dbg!(&b);
+    let mut buff = [0; 1024].to_vec();
+    stream.read(&mut buff)?;
+    let content = String::from_utf8(buff)?;
+    let mut lines = content.lines();
+    let b = lines.next().unwrap();
     if b.is_empty() {
-        return Err(anyhow!("empy path"));
+        return Err(anyhow!("empty path"));
     }
     let path = b.split(' ').collect::<Vec<_>>()[1];
 
     // empy line
-    buff.clear();
-    reader.read_line(&mut buff)?;
+    lines.next();
 
     let mut _host = String::new();
     let mut user_agent = String::new();
     for _ in 0..2 {
-        buff.clear();
-        reader.read_line(&mut buff)?;
-        let b = buff.clone();
+        let b = lines.next().unwrap();
         let parts = b.split(' ').collect::<Vec<_>>();
         match parts[0] {
             "Host:" => _host = parts[1].into(),
