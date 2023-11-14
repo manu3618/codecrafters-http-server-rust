@@ -5,7 +5,7 @@ use std::io::BufReader;
 use std::io::Write;
 use std::net::TcpListener;
 use std::net::TcpStream;
-use std::thread;
+use std::{thread, time};
 
 fn handle_stream(mut stream: TcpStream) -> Result<()> {
     let mut buff = String::with_capacity(256);
@@ -13,7 +13,7 @@ fn handle_stream(mut stream: TcpStream) -> Result<()> {
     reader.read_line(&mut buff)?;
     let b = buff.clone();
     if b.len() == 0 {
-        return Err(anyhow!("empy path"))
+        return Err(anyhow!("empy path"));
     }
     let path = b.split(' ').collect::<Vec<_>>()[1];
 
@@ -97,6 +97,7 @@ fn main() {
                 println!("error: {}", e);
             }
         }
+        thread::sleep(time::Duration::from_millis(1));
     }
     for handle in handlers {
         let _ = handle.join();
