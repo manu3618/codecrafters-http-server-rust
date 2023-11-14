@@ -71,7 +71,7 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
         Method::Post => {
             let content = lines.collect::<Vec<_>>();
             dbg!(&content);
-            match write_file(&content.join("\r\n"), path, dir) {
+            match write_file(&content[2..content.len()].join("\r\n"), path, dir) {
                 Ok(()) => {
                     let _ = stream.write(b"HTTP/1.1 201 Created")?;
                     return Ok(());
