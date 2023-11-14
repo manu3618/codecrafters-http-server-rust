@@ -9,16 +9,27 @@ use std::net::TcpStream;
 use std::path::Path;
 use std::{thread, time};
 
+enum Method {
+    Get,
+    Post,
+}
+
 fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
     let mut buff = [0; 1024].to_vec();
-    stream.read(&mut buff)?;
+    let _ = stream.read(&mut buff)?;
     let content = String::from_utf8(buff)?;
     let mut lines = content.lines();
     let b = lines.next().unwrap();
     if b.is_empty() {
         return Err(anyhow!("empty path"));
     }
-    let path = b.split(' ').collect::<Vec<_>>()[1];
+    let parts = b.split(' ').collect::<Vec<_>>();
+    let method = match parts[0] {
+        "GET" => Method::Get,
+        "POST" => Method::Post,
+        _ => unreachable!(),
+    };
+    let path = parts[1];
 
     // empy line
     lines.next();
@@ -40,20 +51,36 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
         }
     }
 
-    match handle_path(path, &user_agent, dir) {
-        Ok(Served::Empty) => {
-            let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
-        }
-        Ok(Served::String(response)) => {
-            let echo = build_content(&response, "text/plain");
-            let _ = stream.write(&echo.into_bytes());
-        }
-        Ok(Served::File(content)) => {
-            let echo = build_content(&content, "application/octet-stream");
-            let _ = stream.write(&echo.into_bytes());
-        }
-        _ => {
-            let _ = stream.write(b"HTTP/1.1 404 Not Found\r\n\r\n")?;
+    match method {
+        Method::Get => match handle_path(path, &user_agent, dir) {
+            Ok(Served::Empty) => {
+                let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
+            }
+            Ok(Served::String(response)) => {
+                let echo = build_content(&response, "text/plain");
+                let _ = stream.write(&echo.into_bytes());
+            }
+            Ok(Served::File(content)) => {
+                let echo = build_content(&content, "application/octet-stream");
+                let _ = stream.write(&echo.into_bytes());
+            }
+            _ => {
+                let _ = stream.write(b"HTTP/1.1 404 Not Found\r\n\r\n")?;
+            }
+        },
+        Method::Post => {
+            let content = lines.collect::<Vec<_>>();
+            dbg!(&content);
+            match write_file(&content.join("\r\n"), path, dir) {
+                Ok(()) => {
+                    let _ = stream.write(b"HTTP/1.1 201 Created")?;
+                    return Ok(());
+                }
+                Err(e) => {
+                    let _ = stream.write(b"HTTP/1.1 500 Internal Server Error")?;
+                    return Err(e);
+                }
+            }
         }
     }
     Ok(())
@@ -101,6 +128,14 @@ fn build_content(content: &str, content_type: &str) -> String {
         &content.len(),
         &content
     )
+}
+
+fn write_file(content: &str, path: &str, dir: &str) -> Result<()> {
+    let p = format!("{}/{}", dir, path);
+    let p = Path::new(&p);
+    let mut file = std::fs::File::create(p)?;
+    file.write_all(content.as_bytes())?;
+    Ok(())
 }
 
 fn main() {
