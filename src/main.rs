@@ -27,7 +27,7 @@ fn handle_stream(mut stream: TcpStream) -> Result<()> {
         let parts = b.split(' ').collect::<Vec<_>>();
         match parts[0] {
             "Host:" => _host = parts[1].into(),
-            "User-Agent:" => user_agent = parts[1][..parts[1].len() - 2].into(),
+            "User-Agent:" => user_agent = parts[1].into(),
             "Accept:" => (),
             "Accept-Encoding:" => (),
             "\r\n" => (),
