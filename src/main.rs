@@ -131,10 +131,12 @@ fn build_content(content: &str, content_type: &str) -> String {
 }
 
 fn write_file(content: &str, path: &str, dir: &str) -> Result<()> {
-    let p = format!("{}/{}", dir, path);
+    let path = &path[7..path.len()];
+    let p = format!("{}{}", dir, path);
     let p = Path::new(&p);
-    let mut file = std::fs::File::create(p)?;
-    file.write_all(content.as_bytes())?;
+    dbg!(&path, &dir);
+    dbg!(&p);
+    fs::write(p, content.as_bytes())?;
     Ok(())
 }
 
