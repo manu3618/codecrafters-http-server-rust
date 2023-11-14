@@ -8,11 +8,17 @@ use std::net::TcpStream;
 use std::{thread, time};
 
 fn handle_stream(mut stream: TcpStream) -> Result<()> {
+    stream.set_read_timeout(Some(time::Duration::new(1, 0)))?;
+    dbg!(&stream);
     let mut buff = String::with_capacity(256);
+    eprintln!("creating reader ({:?})", &stream);
     let mut reader = BufReader::new(stream.try_clone()?);
+    eprintln!("reading 1st line ({:?})", &stream);
     reader.read_line(&mut buff)?;
+    eprintln!("1st line read ({:?})", &stream);
     let b = buff.clone();
-    if b.len() == 0 {
+    dbg!(&b);
+    if b.is_empty() {
         return Err(anyhow!("empy path"));
     }
     let path = b.split(' ').collect::<Vec<_>>()[1];
@@ -91,7 +97,14 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                handlers.push(thread::spawn(|| handle_stream(stream)));
+                handlers.push(thread::spawn(|| match handle_stream(stream) {
+                    Ok(o) => {
+                        dbg!(o);
+                    }
+                    Err(e) => {
+                        dbg!(e);
+                    }
+                }));
             }
             Err(e) => {
                 println!("error: {}", e);
