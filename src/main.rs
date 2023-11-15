@@ -70,6 +70,7 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
         },
         Method::Post => {
             let content = lines.collect::<Vec<_>>();
+            dbg!(&content);
             let content = &content[3..content.len()].join("\r\n");
             let content = content.trim_matches(char::from(0));
             dbg!(&content);
