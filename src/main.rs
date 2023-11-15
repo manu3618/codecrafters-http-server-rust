@@ -140,6 +140,7 @@ fn write_file(content: &str, path: &str, dir: &str) -> Result<()> {
     let parent = p.parent();
     fs::create_dir_all(parent.unwrap())?;
     fs::write(p, content.as_bytes())?;
+    thread::sleep(time::Duration::from_millis(10));
     Ok(())
 }
 
