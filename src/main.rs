@@ -69,15 +69,16 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
             }
         },
         Method::Post => {
-            let content = lines.collect::<Vec<_>>();
+            let mut content = lines.collect::<Vec<_>>();
+            content.push("".into());
             dbg!(&content);
-            match write_file(&content[2..content.len()].join("\r\n"), path, dir) {
+            match write_file(&content[3..content.len()].join("\r\n"), path, dir) {
                 Ok(()) => {
-                    let _ = stream.write(b"HTTP/1.1 201 Created")?;
+                    let _ = stream.write(b"HTTP/1.1 201 Createdi\r\n\r\n")?;
                     return Ok(());
                 }
                 Err(e) => {
-                    let _ = stream.write(b"HTTP/1.1 500 Internal Server Error")?;
+                    let _ = stream.write(b"HTTP/1.1 500 Internal Server Error\r\n\r\n")?;
                     return Err(e);
                 }
             }
