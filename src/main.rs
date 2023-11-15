@@ -131,11 +131,13 @@ fn build_content(content: &str, content_type: &str) -> String {
 }
 
 fn write_file(content: &str, path: &str, dir: &str) -> Result<()> {
+    dbg!(&path, &dir);
     let path = &path[7..path.len()];
     let p = format!("{}{}", dir, path);
     let p = Path::new(&p);
-    dbg!(&path, &dir);
     dbg!(&p);
+    let parent = p.parent();
+    fs::create_dir_all(parent.unwrap())?;
     fs::write(p, content.as_bytes())?;
     Ok(())
 }
