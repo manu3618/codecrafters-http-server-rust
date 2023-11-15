@@ -69,10 +69,11 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
             }
         },
         Method::Post => {
-            let mut content = lines.collect::<Vec<_>>();
-            content.push("".into());
+            let content = lines.collect::<Vec<_>>();
+            let content = &content[3..content.len()].join("\r\n");
+            let content = content.trim_matches(char::from(0));
             dbg!(&content);
-            match write_file(&content[3..content.len()].join("\r\n"), path, dir) {
+            match write_file(content, path, dir) {
                 Ok(()) => {
                     let _ = stream.write(b"HTTP/1.1 201 Createdi\r\n\r\n")?;
                     return Ok(());
@@ -139,8 +140,9 @@ fn write_file(content: &str, path: &str, dir: &str) -> Result<()> {
     dbg!(&p);
     let parent = p.parent();
     fs::create_dir_all(parent.unwrap())?;
+    eprintln!("writing to {:?}", &p);
+    eprintln!("file content:\n{:?}", &content);
     fs::write(p, content.as_bytes())?;
-    thread::sleep(time::Duration::from_millis(10));
     Ok(())
 }
 
