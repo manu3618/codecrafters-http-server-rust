@@ -1,3 +1,18 @@
+This my first try to pass the codecrafter "build your own http server" challenge.
+
+They provide boiler plate to pas the first stage (which is basically just to
+check your environnement is set up correctly)
+Each step adds a piece of feature.
+In the last step, we can handle some requests.
+
+More on [codecrafter](https://app.codecrafters.io/courses/http-server/).
+
+----
+
+Original Readme:
+
+----
+
 [![progress-banner](https://backend.codecrafters.io/progress/http-server/162af98b-3084-49b6-9fc2-c29d8320d672)](https://app.codecrafters.io/users/codecrafters-bot?r=2qF)
 
 This is a starting point for Rust solutions to the
