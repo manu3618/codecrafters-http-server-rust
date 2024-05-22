@@ -7,11 +7,27 @@ use std::io::Write;
 use std::net::TcpListener;
 use std::net::TcpStream;
 use std::path::Path;
+use std::str::Lines;
 use std::{thread, time};
 
 enum Method {
     Get,
     Post,
+}
+
+#[derive(Debug, Default)]
+enum Encoding {
+    #[default]
+    None,
+    Invalid,
+    Gzip,
+}
+
+#[derive(Debug, Default)]
+struct Header {
+    host: Option<String>,
+    user_agent: Option<String>,
+    accept_encoding: Encoding,
 }
 
 fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
@@ -31,37 +47,24 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
     };
     let path = parts[1];
 
-    // empy line
-    lines.next();
-
-    let mut _host = String::new();
-    let mut user_agent = String::new();
-    for _ in 0..2 {
-        let b = lines.next().unwrap();
-        let parts = b.split(' ').collect::<Vec<_>>();
-        match parts[0] {
-            "Host:" => _host = parts[1].into(),
-            "User-Agent:" => user_agent = parts[1].into(),
-            "Accept:" => (),
-            "Accept-Encoding:" => (),
-            "\r\n" => (),
-            _ => {
-                dbg!(&parts);
-            }
-        }
-    }
+    let header = parse_header(&mut lines);
+    dbg!(&header);
 
     match method {
-        Method::Get => match handle_path(path, &user_agent, dir) {
+        Method::Get => match handle_path(path, &header, dir) {
             Ok(Served::Empty) => {
                 let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
             }
             Ok(Served::String(response)) => {
-                let echo = build_content(&response, "text/plain");
+                let echo = build_content(&response, "text/plain", None);
                 let _ = stream.write(&echo.into_bytes());
             }
             Ok(Served::File(content)) => {
-                let echo = build_content(&content, "application/octet-stream");
+                let echo = build_content(&content, "application/octet-stream", None);
+                let _ = stream.write(&echo.into_bytes());
+            }
+            Ok(Served::Compressed(content)) => {
+                let echo = build_content(&content, "text/plain", Some("gzip"));
                 let _ = stream.write(&echo.into_bytes());
             }
             _ => {
@@ -93,21 +96,55 @@ enum Served {
     Empty,
     String(String),
     File(String),
+    Compressed(String),
 }
 
-fn handle_path(path: &str, user_agent: &str, dir: &str) -> Result<Served> {
+fn parse_header(lines: &mut Lines) -> Header {
+    let mut header = Header::default();
+    let max_header_len = 5;
+    for _ in 0..max_header_len {
+        let b = lines.next().unwrap();
+        let parts = b.split(' ').collect::<Vec<_>>();
+        match parts[0].to_lowercase().as_str() {
+            "host:" => header.host = Some(parts[1].into()),
+            "user-agent:" => header.user_agent = Some(parts[1].into()),
+            "accept:" => (),
+            "accept-encoding:" => {
+                header.accept_encoding = match parts[1] {
+                    "gzip" => Encoding::Gzip,
+                    _ => {
+                        dbg!("unknown encoding {}", &parts[0]);
+                        Encoding::Invalid
+                    }
+                }
+            }
+            "\r\n" | "" => break, // end of header
+            _ => {
+                dbg!(&parts);
+            }
+        }
+    }
+    header
+}
+
+fn handle_path(path: &str, header: &Header, dir: &str) -> Result<Served> {
     let parts: Vec<_> = path.split('/').collect();
     match parts.get(1) {
         Some(&"") => Ok(Served::Empty),
-        Some(&"echo") => {
-            if parts.len() < 2 {
-                Ok(Served::Empty)
-            } else {
-                let r = parts[2..parts.len()].join("/");
-                Ok(Served::String(r.clone()))
+        Some(&"echo") => match header.accept_encoding {
+            Encoding::Gzip => Ok(Served::Compressed(path.into())),
+            _ => {
+                if parts.len() < 2 {
+                    Ok(Served::Empty)
+                } else {
+                    let r = parts[2..parts.len()].join("/");
+                    Ok(Served::String(r.clone()))
+                }
             }
-        }
-        Some(&"user-agent") => Ok(Served::String(String::from(user_agent))),
+        },
+        Some(&"user-agent") => Ok(Served::String(
+            header.user_agent.clone().unwrap_or("".into()),
+        )),
         Some(&"files") => {
             let r = parts[2..parts.len()].join("/");
             handle_file(&r, dir)
@@ -124,13 +161,19 @@ fn handle_file(path: &str, dir: &str) -> Result<Served> {
     Ok(Served::File(content))
 }
 
-fn build_content(content: &str, content_type: &str) -> String {
-    format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\n\r\n{}\r\n",
-        &content_type,
-        &content.len(),
-        &content
-    )
+fn build_content(content: &str, content_type: &str, encoding: Option<&str>) -> String {
+    let mut lines: Vec<String> = Vec::new();
+    lines.push("HTTP/1.1 200 OK".into());
+    if let Some(e) = encoding {
+        lines.push(format!("Content-Encoding: {}", e));
+    }
+    lines.push(format!("Content-Type: {}", &content_type));
+    lines.push(format!("Content-Length: {}", &content.len()));
+    lines.push("".into());
+    lines.push(content.into());
+    lines.push("".into());
+
+    lines.join("\r\n")
 }
 
 fn write_file(content: &str, path: &str, dir: &str) -> Result<()> {
