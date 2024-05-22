@@ -70,16 +70,12 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
                 encoder.write_all(&content.into_bytes())?;
                 let compressed = encoder.finish()?;
                 // let h = hex::encode(&compressed);
-                let h = "1f8b08008c643b6602ff4bcbcf07002165738c03000000";
-                dbg!(&h);
 
                 let mut echo = build_content_header("text/plain", Some("gzip"), compressed.len());
                 echo.push_str("\r\n");
                 let mut echo = echo.into_bytes();
                 echo.extend(compressed);
 
-                dbg!(&echo);
-                dbg!(echo.len());
                 let _ = stream.write(&echo);
             }
             _ => {
