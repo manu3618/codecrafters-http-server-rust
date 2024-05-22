@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use anyhow::Result;
-use flate2::write::ZlibEncoder;
+use flate2::write::GzEncoder;
 use flate2::Compression;
 use std::env::args;
 use std::fs;
@@ -58,18 +58,21 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
                 let _ = stream.write(b"HTTP/1.1 200 OK\r\n\r\n")?;
             }
             Ok(Served::String(response)) => {
-                let echo = build_content(&response, "text/plain", None);
+                let echo = build_content(&response, "text/plain", None, None);
                 let _ = stream.write(&echo.into_bytes());
             }
             Ok(Served::File(content)) => {
-                let echo = build_content(&content, "application/octet-stream", None);
+                let echo = build_content(&content, "application/octet-stream", None, None);
                 let _ = stream.write(&echo.into_bytes());
             }
             Ok(Served::Compressed(content)) => {
-                let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
-                e.write_all(&content.into_bytes())?;
-                let compressed = e.finish()?;
-                let echo = build_content(&hex::encode(compressed), "text/plain", Some("gzip"));
+                let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+                encoder.write_all(&content.into_bytes())?;
+                let compressed = encoder.finish()?;
+                let h = hex::encode(&compressed);
+                dbg!(&h);
+
+                let echo = build_content(&h, "text/plain", Some("gzip"), Some(compressed.len()));
                 let _ = stream.write(&echo.into_bytes());
             }
             _ => {
@@ -170,14 +173,20 @@ fn handle_file(path: &str, dir: &str) -> Result<Served> {
     Ok(Served::File(content))
 }
 
-fn build_content(content: &str, content_type: &str, encoding: Option<&str>) -> String {
+fn build_content(
+    content: &str,
+    content_type: &str,
+    encoding: Option<&str>,
+    content_length: Option<usize>,
+) -> String {
     let mut lines: Vec<String> = Vec::new();
     lines.push("HTTP/1.1 200 OK".into());
     if let Some(e) = encoding {
         lines.push(format!("Content-Encoding: {}", e));
     }
     lines.push(format!("Content-Type: {}", &content_type));
-    lines.push(format!("Content-Length: {}", &content.len()));
+    let len = content_length.unwrap_or(content.len());
+    lines.push(format!("Content-Length: {}", len));
     lines.push("".into());
     lines.push(content.into());
     lines.push("".into());
