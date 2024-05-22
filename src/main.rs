@@ -15,7 +15,7 @@ enum Method {
     Post,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq)]
 enum Encoding {
     #[default]
     None,
@@ -27,7 +27,7 @@ enum Encoding {
 struct Header {
     host: Option<String>,
     user_agent: Option<String>,
-    accept_encoding: Encoding,
+    accept_encoding: Vec<Encoding>,
 }
 
 fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
@@ -110,12 +110,15 @@ fn parse_header(lines: &mut Lines) -> Header {
             "user-agent:" => header.user_agent = Some(parts[1].into()),
             "accept:" => (),
             "accept-encoding:" => {
-                header.accept_encoding = match parts[1] {
-                    "gzip" => Encoding::Gzip,
-                    _ => {
-                        dbg!("unknown encoding {}", &parts[0]);
-                        Encoding::Invalid
-                    }
+                for e in parts[1..].iter() {
+                    header.accept_encoding.push(match e.trim_matches(',') {
+                        "gzip" => Encoding::Gzip,
+                        _ => {
+                            dbg!(e);
+                            dbg!(&parts);
+                            Encoding::Invalid
+                        }
+                    })
                 }
             }
             "\r\n" | "" => break, // end of header
@@ -131,17 +134,17 @@ fn handle_path(path: &str, header: &Header, dir: &str) -> Result<Served> {
     let parts: Vec<_> = path.split('/').collect();
     match parts.get(1) {
         Some(&"") => Ok(Served::Empty),
-        Some(&"echo") => match header.accept_encoding {
-            Encoding::Gzip => Ok(Served::Compressed(path.into())),
-            _ => {
-                if parts.len() < 2 {
-                    Ok(Served::Empty)
-                } else {
-                    let r = parts[2..parts.len()].join("/");
-                    Ok(Served::String(r.clone()))
-                }
+        Some(&"echo") => {
+            if header.accept_encoding.contains(&Encoding::Gzip) {
+                Ok(Served::Compressed(path.into()))
+            } else if parts.len() < 2 {
+                Ok(Served::Empty)
+            } else {
+                let r = parts[2..parts.len()].join("/");
+                Ok(Served::String(r.clone()))
             }
-        },
+        }
+
         Some(&"user-agent") => Ok(Served::String(
             header.user_agent.clone().unwrap_or("".into()),
         )),
