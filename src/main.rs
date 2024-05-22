@@ -1,5 +1,7 @@
 use anyhow::anyhow;
 use anyhow::Result;
+use flate2::write::ZlibEncoder;
+use flate2::Compression;
 use std::env::args;
 use std::fs;
 use std::io::Read;
@@ -64,7 +66,10 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
                 let _ = stream.write(&echo.into_bytes());
             }
             Ok(Served::Compressed(content)) => {
-                let echo = build_content(&content, "text/plain", Some("gzip"));
+                let mut e = ZlibEncoder::new(Vec::new(), Compression::default());
+                e.write_all(&content.into_bytes())?;
+                let compressed = e.finish()?;
+                let echo = build_content(&hex::encode(compressed), "text/plain", Some("gzip"));
                 let _ = stream.write(&echo.into_bytes());
             }
             _ => {
@@ -135,8 +140,9 @@ fn handle_path(path: &str, header: &Header, dir: &str) -> Result<Served> {
     match parts.get(1) {
         Some(&"") => Ok(Served::Empty),
         Some(&"echo") => {
-            if header.accept_encoding.contains(&Encoding::Gzip) {
-                Ok(Served::Compressed(path.into()))
+            if header.accept_encoding.contains(&Encoding::Gzip) && parts.len() >= 2 {
+                let r = parts[2..].join("/");
+                Ok(Served::Compressed(r))
             } else if parts.len() < 2 {
                 Ok(Served::Empty)
             } else {
