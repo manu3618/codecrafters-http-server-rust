@@ -33,7 +33,7 @@ struct Header {
 }
 
 fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
-    let mut buff = [0; 1024].to_vec();
+    let mut buff = [0; 2048].to_vec();
     let _ = stream.read(&mut buff)?;
     let content = String::from_utf8(buff)?;
     let mut lines = content.lines();
@@ -69,11 +69,18 @@ fn handle_stream(mut stream: TcpStream, dir: &str) -> Result<()> {
                 let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
                 encoder.write_all(&content.into_bytes())?;
                 let compressed = encoder.finish()?;
-                let h = hex::encode(&compressed);
+                // let h = hex::encode(&compressed);
+                let h = "1f8b08008c643b6602ff4bcbcf07002165738c03000000";
                 dbg!(&h);
 
-                let echo = build_content(&h, "text/plain", Some("gzip"), Some(compressed.len()));
-                let _ = stream.write(&echo.into_bytes());
+                let mut echo = build_content_header("text/plain", Some("gzip"), compressed.len());
+                echo.push_str("\r\n");
+                let mut echo = echo.into_bytes();
+                echo.extend(compressed);
+
+                dbg!(&echo);
+                dbg!(echo.len());
+                let _ = stream.write(&echo);
             }
             _ => {
                 let _ = stream.write(b"HTTP/1.1 404 Not Found\r\n\r\n")?;
@@ -180,17 +187,26 @@ fn build_content(
     content_length: Option<usize>,
 ) -> String {
     let mut lines: Vec<String> = Vec::new();
+    let len = content_length.unwrap_or(content.len());
+    lines.push(build_content_header(content_type, encoding, len));
+    lines.push(content.into());
+    lines.push("".into());
+    lines.join("\r\n")
+}
+
+fn build_content_header(
+    content_type: &str,
+    encoding: Option<&str>,
+    content_length: usize,
+) -> String {
+    let mut lines: Vec<String> = Vec::new();
     lines.push("HTTP/1.1 200 OK".into());
     if let Some(e) = encoding {
         lines.push(format!("Content-Encoding: {}", e));
     }
     lines.push(format!("Content-Type: {}", &content_type));
-    let len = content_length.unwrap_or(content.len());
-    lines.push(format!("Content-Length: {}", len));
+    lines.push(format!("Content-Length: {}", content_length));
     lines.push("".into());
-    lines.push(content.into());
-    lines.push("".into());
-
     lines.join("\r\n")
 }
 
